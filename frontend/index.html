@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TraderGPT Pro</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f3f4f6; margin:0; padding:20px; }
+    .container { max-width:700px; margin:30px auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.08); }
+    input, button { width:100%; padding:12px; margin-top:10px; font-size:15px; }
+    button { background:#2563eb; color:#fff; border: none; border-radius:8px; cursor:pointer; }
+    button:disabled{ background:#93c5fd; cursor:not-allowed; }
+    h1 { text-align:center; margin:0 0 10px 0; font-size:32px; }
+    .error{ color:#dc2626; margin-top:12px; text-align:center; }
+    .result{ margin-top:18px; background:#f9fafb; padding:14px; border-radius:8px; border:1px solid #e6eef8; }
+    ul{ padding-left:20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TraderGPT Pro</h1>
+    <input id="symbol" placeholder="Symbol (e.g., RELIANCE)" />
+    <input id="horizon" placeholder="Horizon (e.g., 2-3 weeks)" />
+    <button id="analyzeBtn">Analyze Symbol</button>
+    <div id="error" class="error"></div>
+    <div id="result" class="result" style="display:none;"></div>
+  </div>
+
+  <script>
+    const btn = document.getElementById("analyzeBtn");
+    const symbolInput = document.getElementById("symbol");
+    const horizonInput = document.getElementById("horizon");
+    const errorDiv = document.getElementById("error");
+    const resultDiv = document.getElementById("result");
+
+    btn.addEventListener("click", async () => {
+      const symbol = symbolInput.value.trim();
+      const horizon = horizonInput.value.trim();
+      errorDiv.textContent = "";
+      resultDiv.style.display = "none";
+      resultDiv.innerHTML = "";
+
+      if (!symbol || !horizon) {
+        errorDiv.textContent = "Please enter both symbol and horizon.";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Analyzing...";
+
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/analyze-symbol", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol, horizon })
+        });
+
+        const text = await res.text();
+
+        if (!res.ok) {
+          // Common OpenRouter credit/token error detection
+          if (text && text.toLowerCase().includes("requires more credits")) {
+            errorDiv.textContent = "OpenRouter: Insufficient credits or token limit. Reduce request size or upgrade your OpenRouter plan.";
+          } else {
+            // show server response (might be JSON with detail)
+            try {
+              const js = JSON.parse(text);
+              errorDiv.textContent = js.detail || JSON.stringify(js);
+            } catch (e) {
+              errorDiv.textContent = "Backend error: " + text;
+            }
+          }
+        } else {
+          const data = JSON.parse(text);
+          renderResult(data);
+        }
+      } catch (err) {
+        errorDiv.textContent = "Request failed. Is the backend running?";
+        console.error(err);
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Analyze Symbol";
+    });
+
+    function renderResult(data) {
+      let html = `<h2>${escapeHtml(data.symbol)} (${escapeHtml(data.horizon)})</h2>`;
+      html += `<p><strong>Bias:</strong> ${escapeHtml(data.bias)}</p>`;
+      html += `<p><strong>Summary:</strong> ${escapeHtml(data.summary)}</p>`;
+
+      if (Array.isArray(data.reasons) && data.reasons.length) {
+        html += `<div style="margin-top:10px;"><strong>Reasons</strong><ul>`;
+        data.reasons.forEach(r => html += `<li>${escapeHtml(r)}</li>`);
+        html += `</ul></div>`;
+      }
+
+      if (Array.isArray(data.risks) && data.risks.length) {
+        html += `<div style="margin-top:10px;"><strong>Risks</strong><ul>`;
+        data.risks.forEach(r => html += `<li>${escapeHtml(r)}</li>`);
+        html += `</ul></div>`;
+      }
+
+      if (data.trade_idea) {
+        html += `<div style="margin-top:10px;"><strong>Trade Idea</strong>`;
+        html += `<p><strong>Direction:</strong> ${escapeHtml(data.trade_idea.direction)}</p>`;
+        html += `<p><strong>Entry Zone:</strong> ${escapeHtml(data.trade_idea.entry_zone)}</p>`;
+        html += `<p><strong>Stop Loss:</strong> ${escapeHtml(data.trade_idea.stop_loss)}</p>`;
+        html += `<p><strong>Target:</strong> ${escapeHtml(data.trade_idea.target)}</p>`;
+        if (data.trade_idea.notes) {
+          html += `<p><strong>Notes:</strong> ${escapeHtml(data.trade_idea.notes)}</p>`;
+        }
+        html += `</div>`;
+      }
+
+      if (Array.isArray(data.sources) && data.sources.length) {
+        html += `<div style="margin-top:10px;"><strong>Sources</strong><ul>`;
+        data.sources.forEach(s => {
+          html += `<li><strong>${escapeHtml(s.title)}</strong>: ${escapeHtml(s.snippet)}</li>`;
+        });
+        html += `</ul></div>`;
+      }
+
+      resultDiv.innerHTML = html;
+      resultDiv.style.display = "block";
+    }
+
+    function escapeHtml(str) {
+      if (!str && str !== 0) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
