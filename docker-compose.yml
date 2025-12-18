@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6334:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  tradergpt:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+    volumes:
+      - ./backend/config.json:/app/backend/config.json
+
+volumes:
+  qdrant_data:
