@@ -1,9 +1,8 @@
 import json
-from pathlib import Path
 import httpx
+from pathlib import Path
 
-BASE_CHAT = "https://openrouter.ai/api/v1/chat/completions"
-BASE_EMBED = "https://openrouter.ai/api/v1/embeddings"
+BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 def load_key():
     path = Path(__file__).parent / "config.json"
@@ -16,30 +15,17 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-async def llm_complete(messages, max_tokens=600):
+async def llm_complete(messages, max_tokens=500):
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
-            BASE_CHAT,
+            BASE_URL,
             headers=HEADERS,
             json={
                 "model": "openai/gpt-4.1-mini",
                 "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": 0.1
+                "temperature": 0.1,
+                "max_tokens": max_tokens
             }
         )
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"]
-
-async def embed_text(text: str) -> list[float]:
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
-            BASE_EMBED,
-            headers=HEADERS,
-            json={
-                "model": "text-embedding-3-small",
-                "input": text
-            }
-        )
-        r.raise_for_status()
-        return r.json()["data"][0]["embedding"]

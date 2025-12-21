@@ -2,9 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY backend /app/backend
+COPY backend/requirements.txt /app/
+RUN pip install -r /app/requirements.txt
 
-RUN pip install fastapi uvicorn httpx qdrant-client
+RUN pip install \
+    fastapi \
+    uvicorn \
+    httpx \
+    qdrant-client \
+    yfinance \
+    pandas
+
 
 EXPOSE 8000
 
